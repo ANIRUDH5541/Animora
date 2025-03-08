@@ -1,6 +1,9 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ShoppingCart, Heart, Check, Loader, AlertCircle } from 'lucide-react';
+import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-hot-toast'; // You'll need to install this package
 
 export interface Product {
   id: number;
@@ -20,6 +23,12 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, theme = 'naruto' }) => {
+  const { addToCart, isLoading } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isAdded, setIsAdded] = useState(false); // Add this missing state variable
+
   // Theme-specific styles
   const themeStyles = {
     naruto: {
@@ -54,6 +63,52 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, theme = 'naruto' }) 
 
   const style = themeStyles[theme];
 
+  // Handle add to cart
+  const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    
+    if (!product.inStock) return;
+
+    // If user is not authenticated, redirect to login
+    if (!isAuthenticated) {
+      navigate('/login', { 
+        state: { 
+          from: location.pathname,
+          message: 'Please login to add items to your cart' 
+        } 
+      });
+      return;
+    }
+
+    try {
+      await addToCart(product.id, 1);
+      // Add this to provide visual feedback
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 2000); // Reset after 2 seconds
+    } catch (error) {
+      console.error('Error adding item to cart:', error);
+    }
+  };
+
+  // Handle add to wishlist with auth integration
+  const handleAddToWishlist = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    
+    // If user is not authenticated, redirect to login
+    if (!isAuthenticated) {
+      navigate('/login', { 
+        state: { 
+          from: window.location.pathname,
+          message: 'Please login to add items to your wishlist' 
+        } 
+      });
+      return;
+    }
+    
+    // Wishlist logic will go here
+    console.log('Adding to wishlist:', product.id);
+  };
+
   return (
     <div className={`bg-gray-900 rounded-lg overflow-hidden shadow-lg ${style.hover} transition-all hover:translate-y-[-5px]`}>
       <Link to={`/product/${product.id}?theme=${theme}`} className="block">
@@ -63,7 +118,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, theme = 'naruto' }) 
             alt={product.name} 
             className="w-full h-64 object-cover"
           />
-          <button className="absolute top-3 right-3 bg-black/50 p-2 rounded-full hover:bg-black transition-colors">
+          <button 
+            className="absolute top-3 right-3 bg-black/50 p-2 rounded-full hover:bg-black transition-colors"
+            onClick={handleAddToWishlist}
+          >
             <Heart className="h-5 w-5 text-white" />
           </button>
           {product.isNew && (
@@ -80,10 +138,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, theme = 'naruto' }) 
         </Link>
         <div className="flex justify-between items-center mt-4">
           <span className="text-xl font-bold text-white">${product.price.toFixed(2)}</span>
-          <button className={`${style.button} text-white p-2 rounded-full transition-colors`}>
-            <ShoppingCart className="h-5 w-5" />
+          <button 
+            onClick={handleAddToCart}
+            disabled={isLoading || !product.inStock}
+            className={`${style.button} text-white p-2 rounded-full transition-colors ${!product.inStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isLoading ? (
+              <Loader className="h-5 w-5 animate-spin" />
+            ) : isAdded ? (
+              <Check className="h-5 w-5" />
+            ) : (
+              <ShoppingCart className="h-5 w-5" />
+            )}
           </button>
         </div>
+        {!product.inStock && (
+          <p className="text-red-500 text-sm mt-2">Out of stock</p>
+        )}
       </div>
     </div>
   );

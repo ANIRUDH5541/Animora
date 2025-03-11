@@ -1,6 +1,19 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000'; // Your backend URL
+const API_URL = 'http://localhost:3000'; // Adjust to your backend URL
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  isAdmin?: boolean;
+}
+
+interface AuthResponse {
+  message: string;
+  token?: string;
+  user: User;
+}
 
 const api = axios.create({
   baseURL: API_URL,
@@ -8,6 +21,18 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Add interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export const productService = {
   getFeaturedProducts: () => api.get('/products/featured'),
@@ -40,12 +65,12 @@ export const cartService = {
 export const authService = {
   // Register user
   register: (name: string, email: string, password: string) => {
-    return api.post('/register', { name, email, password });
+    return api.post<AuthResponse>('/register', { name, email, password });
   },
 
   // Login user
   login: (email: string, password: string) => {
-    return api.post('/login', { email, password });
+    return api.post<AuthResponse>('/login', { email, password });
   }
 };
 

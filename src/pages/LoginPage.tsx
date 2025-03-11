@@ -1,14 +1,35 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState('');
-  const { login, isLoading, error } = useAuth();
+  const [rememberMe, setRememberMe] = useState(false);
+  const { login, isLoading, error, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get redirect path from location state (if available)
+  const from = location.state?.from || '/';
+  const message = location.state?.message || null;
+
+  // Show redirect message if provided
+  useEffect(() => {
+    if (message) {
+      toast.info(message);
+    }
+  }, [message]);
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,9 +43,11 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/'); // Redirect to home page after successful login
+      toast.success('Login successful!');
+      navigate(from, { replace: true });
     } catch (err) {
       // Error is already handled in the auth context
+      // Additional UI feedback can be added here if needed
     }
   };
 
@@ -81,6 +104,8 @@ const LoginPage: React.FC = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 bg-gray-800 border-gray-700 rounded text-purple-600 focus:ring-purple-500"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">

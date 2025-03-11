@@ -5,125 +5,112 @@ interface User {
   id: string;
   name: string;
   email: string;
-  isAdmin: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
-  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check if user is already logged in on initial load
+  // Check for existing session on load
   useEffect(() => {
-    const checkUserSession = async () => {
-      const userId = localStorage.getItem('userId');
-      const userName = localStorage.getItem('userName');
-      const userEmail = localStorage.getItem('userEmail');
-      const userIsAdmin = localStorage.getItem('userIsAdmin');
+    const checkAuth = () => {
+      const token = localStorage.getItem('auth_token');
+      const savedUser = localStorage.getItem('user');
       
-      if (userId && userName && userEmail) {
-        setUser({
-          id: userId,
-          name: userName,
-          email: userEmail,
-          isAdmin: userIsAdmin === 'true',
-        });
-        setIsAuthenticated(true);
+      if (token && savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        } catch (err) {
+          // Invalid stored user data
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+        }
       }
       
       setIsLoading(false);
     };
     
-    checkUserSession();
+    checkAuth();
   }, []);
 
-  // Login function
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await authService.login(email, password);
       
-      if (response.data.user) {
-        const userData = response.data.user;
-        
-        // Save user data to localStorage
-        localStorage.setItem('userId', userData._id);
-        localStorage.setItem('userName', userData.name);
-        localStorage.setItem('userEmail', userData.email);
-        localStorage.setItem('userIsAdmin', userData.isAdmin.toString());
-        
-        setUser({
-          id: userData._id,
-          name: userData.name,
-          email: userData.email,
-          isAdmin: userData.isAdmin,
-        });
-        
-        setIsAuthenticated(true);
-      }
+      // Store user data in state and localStorage
+      const userData = response.data.user;
+      const token = response.data.token || 'fake-token'; // Use the token from response if available
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      return response;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to login');
+      const errorMessage = err.response?.data?.message || 'Failed to login. Please try again.';
+      setError(errorMessage);
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Register function
   const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await authService.register(name, email, password);
       
-      if (response.data.user) {
-        const userData = response.data.user;
-        
-        // Save user data to localStorage
-        localStorage.setItem('userId', userData._id);
-        localStorage.setItem('userName', userData.name);
-        localStorage.setItem('userEmail', userData.email);
-        localStorage.setItem('userIsAdmin', userData.isAdmin.toString());
-        
-        setUser({
-          id: userData._id,
-          name: userData.name,
-          email: userData.email,
-          isAdmin: userData.isAdmin,
-        });
-        
-        setIsAuthenticated(true);
-      }
+      // Store user data
+      const userData = response.data.user;
+      const token = response.data.token || 'fake-token';
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      return response;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to register');
+      const errorMessage = err.response?.data?.message || 'Failed to register. Please try again.';
+      setError(errorMessage);
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Logout function
   const logout = () => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userIsAdmin');
     setUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
   };
 
   return (
@@ -131,23 +118,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       user, 
       isLoading, 
       error, 
+      isAuthenticated,
       login, 
       register, 
-      logout, 
-      isAuthenticated 
+      logout
     }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook for using the auth context
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
   return context;
 };

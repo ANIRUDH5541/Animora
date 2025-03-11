@@ -11,6 +11,8 @@ import ProductDetails from './pages/ProductDetails';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import CartPage from './pages/CartPage';
+import { ProfilePage } from './pages/ProfilePage'; // Create this if it doesn't exist
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import { CartProvider } from './contexts/CartContext';
@@ -32,7 +34,23 @@ function App() {
               <Route path="/product/:id" element={<ProductDetails />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route path="/cart" element={<CartPage />} />
+              {/* Protected Routes */}
+              <Route 
+                path="/cart" 
+                element={
+                  <ProtectedRoute>
+                    <CartPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </main>
           <Footer />
